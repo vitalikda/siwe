@@ -1,16 +1,18 @@
 import type { SafeEventEmitterProvider } from "@web3auth/base";
 import Web3 from "web3";
+import { isSupportedProvider } from "web3-core"
 
 export default class EthereumRpc {
   private provider: SafeEventEmitterProvider;
 
   constructor(provider: SafeEventEmitterProvider) {
+    console.log("isSupportedProvider", isSupportedProvider(provider))
     this.provider = provider;
   }
 
   async getChainId(): Promise<string> {
     try {
-      const web3 = new Web3(this.provider as any);
+      const web3 = new Web3(this.provider);
 
       // Get the connected Chain's ID
       const chainId = await web3.eth.getChainId();
@@ -23,7 +25,7 @@ export default class EthereumRpc {
 
   async getAccounts(): Promise<any> {
     try {
-      const web3 = new Web3(this.provider as any);
+      const web3 = new Web3(this.provider);
 
       // Get user's Ethereum public address
       const address = await web3.eth.getAccounts();
@@ -36,7 +38,7 @@ export default class EthereumRpc {
 
   async getBalance(): Promise<string> {
     try {
-      const web3 = new Web3(this.provider as any);
+      const web3 = new Web3(this.provider);
 
       // Get user's Ethereum public address
       const address = (await web3.eth.getAccounts())[0];
@@ -55,7 +57,7 @@ export default class EthereumRpc {
 
   async sendTransaction(): Promise<any> {
     try {
-      const web3 = new Web3(this.provider as any);
+      const web3 = new Web3(this.provider);
 
       // Get user's Ethereum public address
       const fromAddress = (await web3.eth.getAccounts())[0];
@@ -81,7 +83,7 @@ export default class EthereumRpc {
 
   async signMessage() {
     try {
-      const web3 = new Web3(this.provider as any);
+      const web3 = new Web3(this.provider);
 
       // Get user's Ethereum public address
       const fromAddress = (await web3.eth.getAccounts())[0];
