@@ -59,7 +59,7 @@ export default class EthereumRpc {
       // await ethersProvider.getBalance(address) // Balance is in wei
       // );
       const balance = ethers.formatEther(
-        await ethersProvider.getBalance(address) // Balance is in wei
+        await ethersProvider.getBalance(address), // Balance is in wei
       );
 
       return balance;

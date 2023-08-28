@@ -5,7 +5,7 @@ const App = dynamic(
   () => {
     return import("../components/App");
   },
-  { ssr: false }
+  { ssr: false },
 );
 
 const Home: NextPage = () => {

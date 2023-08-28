@@ -1,109 +1,71 @@
-import { CHAIN_NAMESPACES, SafeEventEmitterProvider } from "@web3auth/base";
-import { MetamaskAdapter } from "@web3auth/metamask-adapter";
-import { Web3Auth } from "@web3auth/modal";
-import { TorusWalletAdapter } from "@web3auth/torus-evm-adapter";
-// import RPC from "../auth/ethersRPC"; // for using ethers.js
-// Plugins
-import { TorusWalletConnectorPlugin } from "@web3auth/torus-wallet-connector-plugin";
-// Adapters
-import { WalletConnectV1Adapter } from "@web3auth/wallet-connect-v1-adapter";
 import { useEffect, useState } from "react";
+
+import {
+  CHAIN_NAMESPACES,
+  SafeEventEmitterProvider,
+  WALLET_ADAPTERS,
+} from "@web3auth/base";
+// import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
+import { Web3AuthNoModal } from "@web3auth/no-modal";
+import { PhantomAdapter } from "@web3auth/phantom-adapter";
+import { MetamaskAdapter } from "@web3auth/metamask-adapter";
 
 import RPC from "../auth/web3RPC"; // for using web3.js
 
-const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || ""
+const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || "";
 
 function App() {
-  const [web3auth, setWeb3auth] = useState<Web3Auth | null>(null);
-  const [torusPlugin, setTorusPlugin] = useState<TorusWalletConnectorPlugin | null>(null);
-  const [provider, setProvider] = useState<SafeEventEmitterProvider | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [web3auth, setWeb3auth] = useState<Web3AuthNoModal | null>(null);
+  const [provider, setProvider] = useState<SafeEventEmitterProvider | null>(
+    null,
+  );
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const web3auth = new Web3Auth({
+        const chainConfig = {
+          chainNamespace: CHAIN_NAMESPACES.EIP155,
+          chainId: "0x1",
+          rpcTarget: "https://rpc.ankr.com/eth",
+          displayName: "Ethereum Mainnet",
+          blockExplorer: "https://goerli.etherscan.io",
+          ticker: "ETH",
+          tickerName: "Ethereum",
+        };
+        const web3authInstance = new Web3AuthNoModal({
           clientId,
-          chainConfig: {
-            chainNamespace: CHAIN_NAMESPACES.EIP155,
-            chainId: "0x1",
-            rpcTarget: "https://rpc.ankr.com/eth", // This is the public RPC we have added, please pass on your own endpoint while creating an app
-          },
+          sessionTime: 3600,
           web3AuthNetwork: "cyan",
+          chainConfig,
         });
 
-        // plugins and adapters are optional and can be added as per your requirement
-        // read more about plugins here: https://web3auth.io/docs/sdk/web/plugins/
-
-        // adding torus wallet connector plugin
-
-        const torusPlugin = new TorusWalletConnectorPlugin({
-          torusWalletOpts: {},
-          walletInitOptions: {
-            whiteLabel: {
-              theme: { isDark: true, colors: { primary: "#00a8ff" } },
-              logoDark: "https://web3auth.io/images/w3a-L-Favicon-1.svg",
-              logoLight: "https://web3auth.io/images/w3a-D-Favicon-1.svg",
-            },
-            useWalletConnect: true,
-            enableLogging: true,
-          },
-        });
-        setTorusPlugin(torusPlugin);
-        await web3auth.addPlugin(torusPlugin);
-
-        // read more about adapters here: https://web3auth.io/docs/sdk/web/adapters/
-
-        // adding wallet connect v1 adapter
-
-        const walletConnectV1Adapter = new WalletConnectV1Adapter({
-          adapterSettings: {
-            bridge: "https://bridge.walletconnect.org",
-          },
-          clientId,
-        });
-
-        web3auth.configureAdapter(walletConnectV1Adapter);
-
-        // adding metamask adapter
+        // TODO: phantom adapter's default is Solana network
+        // const phantomAdapter = new PhantomAdapter({
+        //   clientId,
+        //   sessionTime: 3600,
+        //   web3AuthNetwork: "cyan",
+        //   chainConfig,
+        // });
+        // web3authInstance.configureAdapter(phantomAdapter);
 
         const metamaskAdapter = new MetamaskAdapter({
           clientId,
-          sessionTime: 3600, // 1 hour in seconds
+          sessionTime: 3600,
           web3AuthNetwork: "cyan",
           chainConfig: {
             chainNamespace: CHAIN_NAMESPACES.EIP155,
             chainId: "0x1",
-            rpcTarget: "https://rpc.ankr.com/eth", // This is the public RPC we have added, please pass on your own endpoint while creating an app
+            rpcTarget: "https://rpc.ankr.com/eth",
           },
         });
-        // we can change the above settings using this function
-        metamaskAdapter.setAdapterSettings({
-          sessionTime: 86400, // 1 day in seconds
-          chainConfig: {
-            chainNamespace: CHAIN_NAMESPACES.EIP155,
-            chainId: "0x89",
-            rpcTarget: "https://rpc-mainnet.matic.network", // This is the public RPC we have added, please pass on your own endpoint while creating an app
-          },
-          web3AuthNetwork: "cyan",
-        });
+        web3authInstance.configureAdapter(metamaskAdapter);
 
-        // it will add/update  the metamask adapter in to web3auth class
-        web3auth.configureAdapter(metamaskAdapter);
+        setWeb3auth(web3authInstance);
+        await web3authInstance.init();
+        setProvider(web3authInstance.provider);
 
-        const torusWalletAdapter = new TorusWalletAdapter({
-          clientId,
-        });
-
-        // it will add/update  the torus-evm adapter in to web3auth class
-        web3auth.configureAdapter(torusWalletAdapter);
-
-        setWeb3auth(web3auth);
-
-        await web3auth.initModal();
-        setProvider(web3auth.provider);
-
-        if (web3auth.connected) {
+        if (web3authInstance.connectedAdapterName) {
           setLoggedIn(true);
         }
       } catch (error) {
@@ -114,12 +76,44 @@ function App() {
     init();
   }, []);
 
+  function uiConsole(...args: any[]): void {
+    const el = document.querySelector("#console>p");
+    if (el) {
+      el.innerHTML = JSON.stringify(args || {}, null, 2);
+    }
+  }
+
   const login = async () => {
     if (!web3auth) {
       uiConsole("web3auth not initialized yet");
       return;
     }
-    const web3authProvider = await web3auth.connect();
+    const web3authProvider = await web3auth.connectTo(
+      WALLET_ADAPTERS.OPENLOGIN,
+      {
+        loginProvider: "google",
+      },
+    );
+    setProvider(web3authProvider);
+    setLoggedIn(true);
+  };
+
+  const loginWithPhantom = async () => {
+    if (!web3auth) {
+      uiConsole("web3auth not initialized yet");
+      return;
+    }
+    const web3authProvider = await web3auth.connectTo(WALLET_ADAPTERS.PHANTOM);
+    setProvider(web3authProvider);
+    setLoggedIn(true);
+  };
+
+  const loginWithMetamask = async () => {
+    if (!web3auth) {
+      uiConsole("web3auth not initialized yet");
+      return;
+    }
+    const web3authProvider = await web3auth.connectTo(WALLET_ADAPTERS.METAMASK);
     setProvider(web3authProvider);
     setLoggedIn(true);
   };
@@ -150,29 +144,6 @@ function App() {
     await web3auth.logout();
     setProvider(null);
     setLoggedIn(false);
-  };
-
-  const showWCM = async () => {
-    if (!torusPlugin) {
-      uiConsole("torus plugin not initialized yet");
-      return;
-    }
-    torusPlugin.showWalletConnectScanner();
-    uiConsole();
-  };
-
-  const initiateTopUp = async () => {
-    if (!torusPlugin) {
-      uiConsole("torus plugin not initialized yet");
-      return;
-    }
-    torusPlugin.initiateTopup("moonpay", {
-      selectedAddress: "0x8cFa648eBfD5736127BbaBd1d3cAe221B45AB9AF",
-      selectedCurrency: "USD",
-      fiatValue: 100,
-      selectedCryptoCurrency: "ETH",
-      chainNetwork: "mainnet",
-    });
   };
 
   const getChainId = async () => {
@@ -263,14 +234,6 @@ function App() {
     uiConsole(privateKey);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function uiConsole(...args: any[]): void {
-    const el = document.querySelector("#console>p");
-    if (el) {
-      el.innerHTML = JSON.stringify(args || {}, null, 2);
-    }
-  }
-
   const loggedInView = (
     <>
       <div className="flex-container">
@@ -282,16 +245,6 @@ function App() {
         <div>
           <button onClick={authenticateUser} className="card">
             Get ID Token
-          </button>
-        </div>
-        <div>
-          <button onClick={showWCM} className="card">
-            Show Wallet Connect Modal
-          </button>
-        </div>
-        <div>
-          <button onClick={initiateTopUp} className="card">
-            initiateTopUp
           </button>
         </div>
         <div>
@@ -320,13 +273,13 @@ function App() {
           </button>
         </div>
         <div>
-          <button onClick={sendTransaction} className="card">
-            Send Transaction
+          <button onClick={signMessage} className="card">
+            Sign Message
           </button>
         </div>
         <div>
-          <button onClick={signMessage} className="card">
-            Sign Message
+          <button onClick={sendTransaction} className="card">
+            Send Transaction
           </button>
         </div>
         <div>
@@ -341,37 +294,35 @@ function App() {
         </div>
       </div>
       <div id="console" style={{ whiteSpace: "pre-line" }}>
-        <p style={{ whiteSpace: "pre-line" }}></p>
+        <p style={{ whiteSpace: "pre-line" }}>Logged in Successfully!</p>
       </div>
     </>
   );
 
-  const unloggedInView = (
-    <button onClick={login} className="card">
-      Login
-    </button>
+  const unLoggedInView = (
+    <div className="grid">
+      <button onClick={login} className="card">
+        Login
+      </button>
+      <button onClick={loginWithPhantom} className="card" disabled>
+        Login with Phantom
+      </button>
+      <button onClick={loginWithMetamask} className="card">
+        Login with Metamask
+      </button>
+    </div>
   );
 
   return (
     <div className="container">
       <h1 className="title">
         <a target="_blank" href="http://web3auth.io/" rel="noreferrer">
-          Web3Auth{" "}
-        </a>
-        & NextJS12 Ethereum Example
+          Web3Auth
+        </a>{" "}
+        with Ethereum Example
       </h1>
 
-      <div className="grid">{loggedIn ? loggedInView : unloggedInView}</div>
-
-      <footer className="footer">
-        <a
-          href="https://github.com/Web3Auth/examples/tree/main/web-modal-sdk/evm/nextjs12-evm-modal-example"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Source code
-        </a>
-      </footer>
+      <div className="grid">{loggedIn ? loggedInView : unLoggedInView}</div>
     </div>
   );
 }
